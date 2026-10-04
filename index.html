@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Turn Back To Home: game edukasi aritmatika. Bantu domba kecil pulang ke rumah dengan menjawab soal matematika.">
+  <title>Turn Back To Home</title>
+
+  <!-- Font: Fredoka (judul & angka) dan Nunito (teks biasa) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="assets/sheep.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body data-page="home">
+  <!-- Tautan aksesibilitas: lompat langsung ke konten utama -->
+  <a class="skip-link" href="#main">Lewati ke konten utama</a>
+
+  <!-- Latar dekoratif (matahari, awan, gunung). Disembunyikan dari screen reader -->
+  <div class="scenery" id="scenery" aria-hidden="true">
+    <div class="scenery__sun"></div>
+  </div>
+
+  <!-- ================= HEADER: tombol kembali + HUD permainan ================= -->
+  <header class="topbar" id="topbar">
+    <button type="button" class="icon-btn" id="btn-back" aria-label="Kembali" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <p class="topbar__title" id="topbar-title"></p>
+
+    <!-- HUD hanya tampil di halaman game -->
+    <ul class="hud" id="hud" aria-label="Statistik permainan" hidden>
+      <li>Skor <output id="hud-score">0</output></li>
+      <li>Waktu <output id="hud-time">00:00</output></li>
+      <li>Salah <output id="hud-miss">0</output></li>
+    </ul>
+  </header>
+
+  <!-- ================= MAIN: empat halaman (SPA sederhana) ================= -->
+  <main id="main">
+
+    <!-- ---------- Halaman 1: Menu ---------- -->
+    <section class="page page--home" id="page-home" aria-labelledby="home-title">
+      <header class="home__header">
+        <h1 id="home-title">Turn Back <small>to</small> Home</h1>
+      </header>
+
+      <div class="road">
+        <button type="button" class="hero" id="btn-start" aria-label="Klik domba untuk memulai permainan">
+          <img src="assets/sheep.svg" alt="Domba kecil yang tersesat dan ingin pulang" width="200" height="217">
+        </button>
+        <p class="pill">Klik si domba untuk mulai</p>
+      </div>
+
+      <!-- Form pengaturan: nama pemain (Enter = mulai bermain) -->
+      <form class="setup" id="form-setup" autocomplete="off">
+        <div class="setup__row">
+          <label for="player-name">Nama pemain</label>
+          <input type="text" id="player-name" name="player" maxlength="14" placeholder="Pemain">
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------- Halaman 2: Game ---------- -->
+    <section class="page page--play" id="page-play" aria-label="Permainan jalan pulang" hidden>
+      <div class="play">
+        <div class="stage" id="stage">
+          <svg id="map" viewBox="0 0 760 520" preserveAspectRatio="xMidYMid meet" role="img"
+               aria-label="Peta jalan pulang dari titik Start sampai rumah">
+            <g id="map-trees"><!-- pohon dibuat oleh JavaScript --></g>
+            <path id="route-bed" fill="none" stroke="#2B1D0C" stroke-opacity=".55" stroke-width="46" stroke-linecap="round"/>
+            <path id="route" fill="none" stroke="#D9B77A" stroke-width="34" stroke-linecap="round"/>
+            <path id="route-dash" fill="none" stroke="#FFF6E0" stroke-opacity=".5" stroke-width="3" stroke-dasharray="3 14" stroke-linecap="round"/>
+            <g id="map-stones"><!-- batu pijakan dibuat oleh JavaScript --></g>
+
+            <text x="95" y="478" class="map__label">Start</text>
+            <g id="house" transform="translate(528 424)">
+              <title>Rumah tujuan</title>
+              <path d="M-4 -12 L38 -48 L80 -12z" fill="#FF6B4D"/>
+              <rect x="6" y="-14" width="64" height="48" rx="4" fill="#FFE9B8"/>
+              <rect x="30" y="4" width="16" height="30" rx="4" fill="#5A3A8C"/>
+              <rect x="12" y="-4" width="12" height="12" rx="2" fill="#FFD27A"/>
+              <rect x="52" y="-4" width="12" height="12" rx="2" fill="#FFD27A"/>
+              <text x="38" y="62" text-anchor="middle" class="map__label">Home</text>
+            </g>
+
+            <g id="walker">
+              <image id="walker-img" href="assets/sheep.svg" x="-30" y="-62" width="60" height="65"/>
+            </g>
+          </svg>
+          <div class="tip" id="stone-tip" role="tooltip" hidden></div>
+        </div>
+
+        <aside class="panel" aria-label="Panel soal">
+          <h2 class="panel__title">The question</h2>
+          <ol class="progress" id="progress" aria-label="Kemajuan perjalanan"></ol>
+
+          <form class="qbox" id="form-answer" novalidate>
+            <p class="question" id="question" aria-live="polite">-</p>
+            <label class="sr-only" for="answer">Jawaban kamu</label>
+            <input type="number" id="answer" name="answer" inputmode="numeric" placeholder="?" required>
+            <div class="btn-row">
+              <button type="submit" class="btn" id="btn-submit">Submit</button>
+              <button type="button" class="btn btn--ghost" id="btn-hint">Petunjuk (3)</button>
+            </div>
+            <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+          </form>
+
+          <!-- Riwayat jawaban: <details> bawaan HTML5 -->
+          <article class="history">
+            <details>
+              <summary>Riwayat jawaban</summary>
+              <ol id="history-list"></ol>
+            </details>
+          </article>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ---------- Halaman 3: Terima kasih ---------- -->
+    <section class="page page--thanks" id="page-thanks" aria-labelledby="thanks-title" hidden>
+      <div class="confetti" id="confetti" aria-hidden="true"></div>
+      <article class="thanks">
+        <h1 id="thanks-title">Thanks for your help!</h1>
+        <p class="pill pill--wide" id="thanks-msg">Berkat kamu, domba sampai di rumah dengan selamat.</p>
+
+        <button type="button" class="hero" id="btn-happy" aria-label="Klik domba untuk kembali ke menu">
+          <img src="assets/sheep-happy.svg" alt="Domba yang senang karena sudah sampai di rumah" width="180" height="195">
+        </button>
+        <p class="pill">Klik si domba untuk kembali ke menu</p>
+
+        <div class="thanks__grid">
+          <section class="card" aria-labelledby="stats-title">
+            <h2 id="stats-title">Hasil kamu</h2>
+            <dl class="stats" id="result-stats"></dl>
+          </section>
+          <section class="card" aria-labelledby="board-title">
+            <h2 id="board-title">Papan skor</h2>
+            <ol class="board" id="board-thanks"></ol>
+          </section>
+        </div>
+      </article>
+    </section>
+
+    <!-- ---------- Halaman 4: Tutorial ---------- -->
+    <section class="page page--tutorial" id="page-tutorial" aria-labelledby="tutorial-title" hidden>
+      <h1 id="tutorial-title">Page Tutorial</h1>
+      <div class="cols">
+        <article class="col" aria-labelledby="tut-steps-title">
+          <h2 id="tut-steps-title">Cara bermain</h2>
+          <ol id="tutorial-steps"><!-- diisi dari objek TUTORIAL --></ol>
+        </article>
+        <article class="col" aria-labelledby="tut-tips-title">
+          <h2 id="tut-tips-title">Tujuan &amp; tips</h2>
+          <ul id="tutorial-tips"><!-- diisi dari objek TUTORIAL --></ul>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= NAV: kontrol cepat (kiri bawah) ================= -->
+  <nav class="dock" aria-label="Kontrol cepat">
+    <button type="button" class="icon-btn" id="btn-music" aria-label="Nyalakan atau matikan suara" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+    </button>
+    <button type="button" class="icon-btn" id="btn-tutorial" aria-label="Buka tutorial">?</button>
+    <button type="button" class="icon-btn" id="btn-board" aria-label="Buka papan skor">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8 20h8"/></svg>
+    </button>
+  </nav>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="site-footer">
+    <small>Tugas 2 Figma &amp; JavaScript &middot; Turn Back To Home</small>
+  </footer>
+
+  <!-- Dialog papan skor (elemen <dialog> HTML5) -->
+  <dialog class="dialog" id="dlg-board" aria-labelledby="dlg-title">
+    <form method="dialog">
+      <h2 id="dlg-title">Papan skor</h2>
+      <ol class="board" id="board-dialog"></ol>
+      <div class="btn-row">
+        <button type="button" class="btn btn--ghost" id="btn-clear-board">Hapus data</button>
+        <button type="submit" class="btn">Tutup</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Urutan skrip penting: data -> utilitas -> penyimpanan -> audio -> logika -> tampilan -> main -->
+  <script src="js/data.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
